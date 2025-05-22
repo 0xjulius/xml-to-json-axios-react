@@ -1,17 +1,19 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { XMLParser } from "fast-xml-parser"; // XML to JSON
+import { XMLParser } from "fast-xml-parser"; 
 import "./App.css";
 
 export default function App() {
+  // tänne laitetaan ne uutiset mitä haetaan
   const [articles, setArticles] = useState([]);
+
+  // kertoo ladataanko vielä vai ei
   const [loading, setLoading] = useState(true);
+
+  // tähän virhe jos tulee
   const [error, setError] = useState(null);
 
-  // tallennetaan pyynnöt tähän refiin, niin ne säilyy sivun uudelleenrenderöinnin yli
-  const requestCount = useRef(0);
-  const maxRequests = 5;
-
+  // base64 -> normaali teksti, tarvitaan jos data base64:ssa
   const base64ToUtf8 = (str) =>
     decodeURIComponent(
       Array.from(atob(str))
@@ -20,43 +22,68 @@ export default function App() {
     );
 
   useEffect(() => {
-    if (requestCount.current >= maxRequests) {
-      setError("Liikaa pyyntöjä, yritä hetken päästä uudelleen.");
-      setLoading(false);
-      return;
+    // max monta fetchiä sallitaan (tässä 5)
+    const maxFetches = 5;
+    // avaimet localStorageen
+    const fetchCountKey = "fetchCount";
+    const fetchTimeKey = "fetchTime";
+    const now = Date.now();
+
+    // haetaan localstoragesta vanhat arvot, jos ei oo niin nollaa ne
+    let storedCount = parseInt(localStorage.getItem(fetchCountKey)) || 0;
+    const storedTime = parseInt(localStorage.getItem(fetchTimeKey)) || 0;
+
+    // jos viime hausta on yli minuutti, nollataan laskuri
+    if (now - storedTime > 60000) {
+      storedCount = 0;
     }
 
-    requestCount.current += 1;
+    // jos on menty yli sallitun määrän, näytetään virhe eikä haeta
+    if (storedCount >= maxFetches) {
+      setError("haettu liian monta kertaa, odota hetki ennen uudelleen yrittämistä.");
+      setLoading(false);
+      return; // ei jatketa
+    }
 
     const proxyUrl = "https://api.allorigins.win/get?url=";
     const feedUrl = "https://yle.fi/rss/t/18-204933/fi";
 
+    // haetaan data proxyn kautta
     axios
       .get(proxyUrl + encodeURIComponent(feedUrl))
       .then((res) => {
         let xmlString = res.data.contents;
 
+        // jos base64, puretaan se normiksi tekstiksi
         if (xmlString.startsWith("data:application/rss+xml;")) {
           const base64Data = xmlString.split(",")[1];
           xmlString = base64ToUtf8(base64Data);
         }
 
+        // parsitaan xml jsoniksi
         const parser = new XMLParser();
         const jsonObj = parser.parse(xmlString);
 
+        // otetaan uutiset jsonista
         let items = jsonObj?.rss?.channel?.item || [];
-        if (!Array.isArray(items)) items = [items];
+        if (!Array.isArray(items)) items = [items]; // jos yks uutinen niin laitetaan taulukkoon
 
-        setArticles(items);
-        setLoading(false);
+        setArticles(items); // päivitetään state
+        setLoading(false); // kerrotaan että lataus ohi
+
+        // tallennetaan uusi fetchien määrä ja aika localStorageen
+        localStorage.setItem(fetchCountKey, storedCount + 1);
+        localStorage.setItem(fetchTimeKey, now.toString());
       })
       .catch((err) => {
-        console.error("Fetch error:", err);
-        setError("Uutisten haku epäonnistui.");
+        // jos virhe nii näytetään se
+        console.error("fetch error:", err);
+        setError("uutisten haku epäonnistui.");
         setLoading(false);
       });
   }, []);
 
+  // jos ladataan vielä, näytetään latausteksti
   if (loading)
     return (
       <p className="p-6 text-center text-blue-800 bg-white bg-opacity-80 rounded-md shadow">
@@ -64,6 +91,7 @@ export default function App() {
       </p>
     );
 
+  // jos virhe, näytetään se
   if (error)
     return (
       <p className="p-6 text-center text-red-600 bg-white bg-opacity-80 rounded-md shadow">
@@ -71,6 +99,7 @@ export default function App() {
       </p>
     );
 
+  // näyttää uutiset listana
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-10 px-4">
       <div className="max-w-4xl mx-auto bg-white bg-opacity-90 p-6 rounded-xl shadow-xl">
@@ -79,6 +108,7 @@ export default function App() {
         </h1>
         <ul className="space-y-6">
           {articles.map((item, i) => {
+            // otetaan otsikko, linkki, kuvaus ja päivämäärä varmuuden vuoksi stringinä
             const title =
               typeof item.title === "string"
                 ? item.title
