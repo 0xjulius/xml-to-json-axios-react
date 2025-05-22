@@ -1,19 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { XMLParser } from "fast-xml-parser"; // XML to JSON
 import "./App.css";
 
 export default function App() {
-  // tänne tallennetaan uutiset
   const [articles, setArticles] = useState([]);
-
-  // kertoo näytetäänkö vielä lataustekstiä
   const [loading, setLoading] = useState(true);
-
-  // virheviesti jos haku ei onnistu
   const [error, setError] = useState(null);
 
-  // muuntaa base64-tekstin normaaliksi utf-8 tekstiksi
+  // tallennetaan pyynnöt tähän refiin, niin ne säilyy sivun uudelleenrenderöinnin yli
+  const requestCount = useRef(0);
+  const maxRequests = 5;
+
   const base64ToUtf8 = (str) =>
     decodeURIComponent(
       Array.from(atob(str))
@@ -21,50 +19,44 @@ export default function App() {
         .join("")
     );
 
-  // suoritetaan kun sivu ladataan
   useEffect(() => {
-    // proxy tarvitaan koska selain ei suoraan anna hakea rss-syötettä eri domainista
-    const proxyUrl = "https://api.allorigins.win/get?url=";
+    if (requestCount.current >= maxRequests) {
+      setError("Liikaa pyyntöjä, yritä hetken päästä uudelleen.");
+      setLoading(false);
+      return;
+    }
 
-    // yle.fi:n rss-osoite
+    requestCount.current += 1;
+
+    const proxyUrl = "https://api.allorigins.win/get?url=";
     const feedUrl = "https://yle.fi/rss/t/18-204933/fi";
 
-    // haetaan rss-data proxyn kautta
     axios
       .get(proxyUrl + encodeURIComponent(feedUrl))
       .then((res) => {
-        // xml-data löytyy tästä
         let xmlString = res.data.contents;
 
-        // joskus data on base64-muodossa, joten dekoodataan
         if (xmlString.startsWith("data:application/rss+xml;")) {
           const base64Data = xmlString.split(",")[1];
           xmlString = base64ToUtf8(base64Data);
         }
 
-        // xml-parseri muuttaa xml:n json-muotoon
         const parser = new XMLParser();
-        const jsonObj = parser.parse(xmlString); // jsonObj sisältää koko rss-syötteen
+        const jsonObj = parser.parse(xmlString);
 
-        // haetaan uutiset jsonista
         let items = jsonObj?.rss?.channel?.item || [];
-
-        // jos uutisia on vain yksi, tehdään siitä taulukko
         if (!Array.isArray(items)) items = [items];
 
-        // tallennetaan uutiset ja lopetetaan lataus
         setArticles(items);
         setLoading(false);
       })
       .catch((err) => {
-        // virhetilanteessa näytetään viesti ja lopetetaan lataus
         console.error("Fetch error:", err);
         setError("Uutisten haku epäonnistui.");
         setLoading(false);
       });
   }, []);
 
-  // jos vielä ladataan, näytetään latausteksti
   if (loading)
     return (
       <p className="p-6 text-center text-blue-800 bg-white bg-opacity-80 rounded-md shadow">
@@ -72,7 +64,6 @@ export default function App() {
       </p>
     );
 
-  // jos tuli virhe, näytetään virheviesti
   if (error)
     return (
       <p className="p-6 text-center text-red-600 bg-white bg-opacity-80 rounded-md shadow">
@@ -80,7 +71,6 @@ export default function App() {
       </p>
     );
 
-  // näytetään uutiset
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-10 px-4">
       <div className="max-w-4xl mx-auto bg-white bg-opacity-90 p-6 rounded-xl shadow-xl">
@@ -89,7 +79,6 @@ export default function App() {
         </h1>
         <ul className="space-y-6">
           {articles.map((item, i) => {
-            // otetaan tarvittavat kentät talteen, ja varmistetaan että ne on string-muodossa
             const title =
               typeof item.title === "string"
                 ? item.title
@@ -106,7 +95,6 @@ export default function App() {
               ? new Date(item.pubDate).toLocaleString("fi-FI")
               : "";
 
-            // yksi uutinen
             return (
               <li
                 key={item.guid || item.link || i}
@@ -120,9 +108,7 @@ export default function App() {
                 >
                   {title}
                 </a>
-                <p className="text-gray-700 mt-2 leading-relaxed">
-                  {description}
-                </p>
+                <p className="text-gray-700 mt-2 leading-relaxed">{description}</p>
                 <p className="text-sm text-gray-500 mt-3">{pubDate}</p>
               </li>
             );
