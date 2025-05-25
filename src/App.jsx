@@ -123,9 +123,9 @@ export default function App() {
   }, [selectedFeed]); // riippuu selectedFeedistä
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-10 px-4">
+    <div className="min-h-screen  py-10 px-4 body">
       <div className="max-w-4xl mx-auto bg-white bg-opacity-90 p-6 rounded-xl shadow-xl">
-        <h1 className="text-4xl font-extrabold mb-6 text-center text-blue-700">
+        <h1 className="text-4xl font-extrabold mb-6 text-center text-gradient">
           Ylen uutiset
         </h1>
 

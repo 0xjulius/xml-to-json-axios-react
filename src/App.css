@@ -1,6 +1,30 @@
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: linear-gradient(to bottom right, #ebf8ff, #bee3f8);
   margin: 0;
   padding: 0;
+  background-image: linear-gradient(
+    to right,
+    #ffffff,
+    #f8f7ff,
+    #eff0ff,
+    #e4e9ff,
+    #d8e3ff,
+    #cbe3ff,
+    #bce3ff,
+    #ace3ff,
+    #97e9ff,
+    #81f0ff,
+    #6cf6fc,
+    #5ffbf1
+  );
 }
+
+.text-gradient {
+  background: #1D2A47; background: linear-gradient(135deg, #1D2A47, #33BCCF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+
